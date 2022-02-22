@@ -60,7 +60,7 @@ namespace Catalog.API.Utils
         {
             var info = new OpenApiInfo()
             {
-                Title = "Drones REST api",
+                Title = "Catalog REST API",
                 Version = description.ApiVersion.ToString(),
                 TermsOfService = new Uri("http://localhost:5000"),
                 Contact = new OpenApiContact

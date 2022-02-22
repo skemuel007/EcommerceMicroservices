@@ -11,6 +11,8 @@ namespace Catalog.API.Repositories
         Task<IEnumerable<Product>> GetProductByName(string name);
         Task<IEnumerable<Product>> GetProductByCategory(string categoryName);
 
+        Task<bool> CheckProductExists(string name);
+
         Task CreateProduct(Product product);
         Task<bool> UpdateProduct(Product product);
         Task<bool> DeleteProduct(string id);

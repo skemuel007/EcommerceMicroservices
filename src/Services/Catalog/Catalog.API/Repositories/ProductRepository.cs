@@ -1,6 +1,7 @@
 ﻿using Catalog.API.Data;
 using Catalog.API.Entities;
 using MongoDB.Driver;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -11,7 +12,13 @@ namespace Catalog.API.Repositories
         private readonly ICatalogContext _catalogContext;
         public ProductRepository(ICatalogContext catalogContext)
         {
-            _catalogContext = catalogContext;
+            _catalogContext = catalogContext ?? throw new ArgumentNullException(nameof(catalogContext));
+        }
+
+        public async Task<bool> CheckProductExists(string name)
+        {
+            FilterDefinition<Product> filterDefinition = Builders<Product>.Filter.Eq(p => p.Name.ToLower(), name.ToLower());
+            return await _catalogContext.Products.Find(p => p.Name.ToLower() == name.ToLower()).AnyAsync();
         }
 
         public async Task CreateProduct(Product product)

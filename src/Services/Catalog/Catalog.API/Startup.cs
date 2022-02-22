@@ -1,7 +1,13 @@
+using Catalog.API.Data;
+using Catalog.API.Middlewares;
+using Catalog.API.Repositories;
+using Catalog.API.Utils;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -27,6 +33,7 @@ namespace Catalog.API
         public IConfiguration Configuration { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
+        [Obsolete]
         public void ConfigureServices(IServiceCollection services)
         {
             // configure cors
@@ -38,9 +45,14 @@ namespace Catalog.API
                 .AllowAnyHeader()
                 .AllowAnyMethod());
             });
+            
+            // add fluent validation support in controllers
 
             // add compression to response
             services.AddResponseCompression();
+
+            // configure automapper
+            services.AddAutoMapper(typeof(Startup));
 
             // enable api health check
             services.AddHealthChecks();
@@ -62,7 +74,19 @@ namespace Catalog.API
                 options.UseCaseSensitivePaths = true;
             });
 
+            // Database extension properties
+            services.Configure<CatalogDatabaseSettings>(
+                Configuration.GetSection(nameof(CatalogDatabaseSettings)));
+
+            services.AddSingleton<ICatalogDatabaseSettings>(sp =>
+                sp.GetRequiredService<IOptions<CatalogDatabaseSettings>>().Value);
+
             services.AddControllers()
+                .AddFluentValidation(v =>
+                {
+                    // Note: it is possible to use data annotation and fluent validation at the same time
+                    v.RegisterValidatorsFromAssemblyContaining<Startup>();
+                })
                 .AddNewtonsoftJson(options => {
                     options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
                     options.UseMemberCasing();
@@ -92,6 +116,10 @@ namespace Catalog.API
                 // can also be used to control the format of the API version in route templates
                 options.SubstituteApiVersionInUrl = true;
             });
+
+            services.AddScoped<ICatalogContext, CatalogContext>();
+
+            services.AddTransient<IProductRepository, ProductRepository>();
 
             services.AddTransient<IConfigureOptions<SwaggerGenOptions>, ConfigureSwaggerOptions>();
             services.AddSwaggerGen(options => options.OperationFilter<SwaggerDefaultValues>());
@@ -137,6 +165,8 @@ namespace Catalog.API
                     });
             }
 
+            app.UseMiddleware<GlobalErrorHandler>();
+
             app.UseRouting();
 
             // use cors
@@ -144,6 +174,8 @@ namespace Catalog.API
             app.UseResponseCaching();
 
             app.UseAuthorization();
+
+            app.UseMiddleware<RateLimitMiddleware>();
 
             app.UseEndpoints(endpoints =>
             {
